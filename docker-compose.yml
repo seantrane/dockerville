@@ -1,0 +1,163 @@
+version: '3.5'
+# https://docs.docker.com/compose/compose-file/
+# https://docs.docker.com/compose/reference/overview/
+services:
+
+  # ----------------------------------------------------------------------------
+  # Core Services
+  # ----------------------------------------------------------------------------
+
+  mongo:
+    image: dockerville-mongo:latest
+    container_name: dockerville-mongo
+    restart: unless-stopped
+    build:
+      context: ./services/mongo
+    volumes:
+      - ./services/mongo/._mongo-data:/data/db
+    expose:
+      - 27017
+    ports:
+      - "27017:27017"
+    networks:
+      - backend
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_USERNAME:-root}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_PASSWORD:-example}"
+
+  redis:
+    image: dockerville-redis:latest
+    container_name: dockerville-redis
+    restart: unless-stopped
+    build:
+      context: ./services/redis
+    volumes:
+      - ./services/redis/._redis-data:/data
+    expose:
+      - 6379
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  # ----------------------------------------------------------------------------
+  # App Services
+  # ----------------------------------------------------------------------------
+
+  node-express-web:
+    image: dockerville-node-express-web:latest
+    container_name: dockerville-node-express-web
+    restart: unless-stopped
+    build:
+      context: ./apps/node-express-web
+      dockerfile: Dockerfile
+      target: build
+      # Build variables.
+      # args:
+      #   WORK_DIR: /usr/src/app
+      #   VAR_NAME: value
+    # command: nodemon --inspect /usr/src/app/server.js
+    depends_on:
+      - mongo
+      - redis
+      # - api
+    env_file:
+      - ./apps/node-express-web/.env
+      # - ./apps/node-express-web/.localrc
+    # Runtime variables.
+    environment:
+      - REDIS_HOST=dockerville-redis
+      - MONGO_HOST=dockerville-mongo:27017
+    # volumes:
+    #   - ./apps/node-express-web:/usr/src/app
+    expose:
+      - 3000
+    ports:
+      - "3000:3000"
+    networks:
+      - frontend
+      - backend
+    # dns:
+    #   - 8.8.8.8
+    #   - 9.9.9.9
+    # dns_search:
+    #   - dc1.example.com
+    #   - dc2.example.com
+    # Populate /etc/hosts file with IP-host mappings.
+    # extra_hosts:
+    #   - somehost:162.242.195.82
+    #   - otherhost:50.31.209.229
+
+  # api:
+  #   image: dockerville-node-express-api:latest
+  #   container_name: dockerville-node-express-api
+  #   restart: unless-stopped
+  #   build:
+  #     context: ./apps/node-express-api
+  #     dockerfile: Dockerfile
+  #   depends_on:
+  #     - mongo
+  #     - redis
+  #   env_file:
+  #     - ./apps/node-express-api/.env
+  #   #   - ./apps/node-express-api/.localrc
+  #   environment:
+  #     - REDIS_HOST=dockerville-redis
+  #     - MONGO_HOST=dockerville-mongo:27017
+  #   # volumes:
+  #   #   - ./apps/node-express-api/lib:/usr/src/app/lib
+  #   #   - ./apps/node-express-api/node_modules:/usr/src/app/node_modules
+  #   expose:
+  #     - 4200
+  #   ports:
+  #     - "4200:4200"
+  #   networks:
+  #     - frontend
+  #     - backend
+
+  # worker:
+  #   image: dockerville-worker:latest
+  #   container_name: dockerville-worker
+  #   restart: unless-stopped
+  #   build:
+  #     context: ./apps/worker
+  #   env_file:
+  #     - ./apps/worker/.env
+  #   depends_on:
+  #     - redis
+  #     - mongo
+  #   environment:
+  #     - REDIS_HOST=dockerville-redis
+  #     - MONGO_HOST=dockerville-mongo:27017
+  #   expose:
+  #     - 6969
+  #   ports:
+  #     - "6969:6969"
+  #   networks:
+  #     - backend
+
+  # python-app:
+  #   image: dockerville-python-app:latest
+  #   container_name: dockerville-python-app
+  #   restart: unless-stopped
+  #   build:
+  #     context: ./apps/python-app
+  #   command: nodemon --watch template --exec "python" app.py
+  #   env_file:
+  #     - ./apps/worker/.env
+  #   depends_on:
+  #     - redis
+  #     - mongo
+  #   environment:
+  #     - REDIS_HOST=dockerville-redis
+  #   volumes:
+  #     — ./apps/python-app:/usr/src/app
+  #   ports:
+  #     — "5000:80"
+  #   networks:
+  #     — frontend
+  #     — backend
+
+networks:
+  frontend:
+  backend:
